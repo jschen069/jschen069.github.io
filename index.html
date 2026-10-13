@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>jschen069 · 个人主页</title>
+<style>
+  :root{
+    --c-bg:#f6f8fa; --c-card:#ffffff; --c-text:#24292f; --c-muted:#57606a;
+    --c-border:#d0d7de; --c-blue:#0969da; --c-blue-bg:#ddf4ff;
+    --c-orange:#bc4c00; --c-green:#1a7f37; --c-green-bg:#dafbe1;
+    --c-purple:#8250df; --c-purple-bg:#fbefff;
+    --c-red:#cf222e; --c-gray-bg:#eef1f4;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI","Microsoft YaHei",-apple-system,sans-serif;background:var(--c-bg);color:var(--c-text);line-height:1.7;font-size:15px;}
+
+  /* ============ 顶部欢迎区 ============ */
+  header.hero{background:linear-gradient(135deg,#3a1d5e 0%,#14487a 60%,#0a6b3d 100%);color:#fff;padding:52px 24px 46px;}
+  header.hero .inner{max-width:1160px;margin:0 auto;display:flex;align-items:center;gap:28px;flex-wrap:wrap;}
+  .avatar{width:96px;height:96px;border-radius:50%;background:rgba(255,255,255,.15);border:2px solid rgba(255,255,255,.45);display:flex;align-items:center;justify-content:center;font-size:38px;font-weight:bold;flex-shrink:0;}
+  header.hero h1{margin:0 0 6px;font-size:30px;letter-spacing:1px;}
+  header.hero .say{margin:0 0 10px;opacity:.9;font-size:16px;}
+  header.hero .meta{display:flex;gap:10px;flex-wrap:wrap;}
+  header.hero .meta span{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:3px 12px;border-radius:20px;font-size:13px;}
+
+  /* ============ 主体两栏 ============ */
+  .layout{max-width:1160px;margin:28px auto 0;padding:0 24px 80px;display:grid;grid-template-columns:minmax(0,1fr) 300px;gap:24px;align-items:start;}
+  @media (max-width:900px){.layout{grid-template-columns:1fr;}}
+
+  /* ============ 左侧主区 ============ */
+  section.card{background:var(--c-card);border:1px solid var(--c-border);border-radius:10px;padding:26px 30px;margin-bottom:24px;}
+  section.card>h2{margin:0 0 14px;font-size:20px;padding-bottom:10px;border-bottom:2px solid var(--c-border);color:#14487a;}
+  section.card p{margin:0 0 12px;color:var(--c-text);}
+  section.card p:last-child{margin-bottom:0;}
+  .muted{color:var(--c-muted);}
+  ul.feature{margin:0;padding-left:22px;}
+  ul.feature li{margin:6px 0;}
+  .note{border-left:4px solid var(--c-blue);background:var(--c-blue-bg);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;font-size:14px;}
+
+  /* 最新笔记卡 */
+  a.latest{display:block;border:1px solid var(--c-border);border-radius:10px;padding:18px 20px;text-decoration:none;color:inherit;transition:box-shadow .15s,transform .15s;background:#fff;}
+  a.latest:hover{box-shadow:0 4px 14px rgba(9,105,218,.12);transform:translateY(-2px);}
+  a.latest .kind{font-size:12px;color:var(--c-muted);letter-spacing:2px;}
+  a.latest .t{font-size:17px;font-weight:600;color:var(--c-blue);margin:2px 0 6px;}
+  a.latest .d{font-size:13.5px;color:var(--c-muted);}
+  a.latest .badges{margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;}
+  a.latest .badges span{background:var(--c-gray-bg);border:1px solid var(--c-border);padding:1px 10px;border-radius:20px;font-size:12px;color:var(--c-muted);}
+
+  /* ============ 右侧文档导航 ============ */
+  aside{position:sticky;top:20px;}
+  .nav-box{background:var(--c-card);border:1px solid var(--c-border);border-radius:10px;overflow:hidden;}
+  .nav-box .nav-head{background:var(--c-gray-bg);padding:12px 18px;font-size:14px;font-weight:600;color:#14487a;border-bottom:1px solid var(--c-border);}
+  .nav-box article.doc{padding:14px 18px;border-bottom:1px solid var(--c-border);}
+  .nav-box article.doc:last-child{border-bottom:none;}
+  .nav-box article.doc>a.doc-title{display:block;font-size:15px;font-weight:600;color:var(--c-blue);text-decoration:none;margin-bottom:6px;}
+  .nav-box article.doc>a.doc-title:hover{text-decoration:underline;}
+  .nav-box article.doc .doc-sub{font-size:12px;color:var(--c-muted);margin-bottom:8px;}
+  .nav-box .placeholder{padding:14px 18px;font-size:13px;color:var(--c-muted);}
+  .nav-foot{padding:10px 18px;font-size:12px;color:var(--c-muted);background:var(--c-gray-bg);}
+
+  footer{color:var(--c-muted);text-align:center;font-size:13px;padding:0 24px 40px;}
+</style>
+</head>
+<body>
+
+<!-- ============ 欢迎区 ============ -->
+<header class="hero">
+  <div class="inner">
+    <div class="avatar">J</div>
+    <div>
+      <h1>欢迎来到 jschen069 的个人主页</h1>
+      <p class="say">这里是我的数字花园 —— 记录源码剖析、工程实践与技术思考。</p>
+      <div class="meta">
+        <span>GitHub Pages</span>
+        <span>纯静态 · 无依赖</span>
+        <span>持续更新</span>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div class="layout">
+
+  <!-- ============ 左侧：主页内容 ============ -->
+  <main>
+
+    <section class="card">
+      <h2>你好，我是 jschen069 👋</h2>
+      <p>一名对基础设施与评测系统感兴趣的开发者。这个站点是我的<b>个人笔记本</b>：读到值得深挖的开源项目，我会做一次彻底的源码级剖析，把执行链路、设计取舍和接入方式整理成图文长文，沉淀在这里。</p>
+      <ul class="feature">
+        <li><b>写什么</b>：框架/系统的全链路源码剖析、benchmark 接入实践、工程踩坑记录</li>
+        <li><b>怎么写</b>：不求面面俱到，但求「从入口到出口」一条链讲透，配时序图与代码位置</li>
+        <li><b>给谁看</b>：未来的我自己，以及恰好搜到同款问题的你</li>
+      </ul>
+      <div class="note">右侧栏是<b>文档导航</b>：所有技术长文按统一格式挂在那里。后续新博客也会以同样格式收录。</div>
+    </section>
+
+    <section class="card">
+      <h2>最新笔记</h2>
+      <a class="latest" href="Harbor_框架详解.html">
+        <div class="kind">TECH NOTES / 技术长文</div>
+        <div class="t">Harbor 框架详解：从入口到结果汇总</div>
+        <div class="d">Agent 评测编排框架的全链路源码剖析：CLI 入口 → Job 编排 → TrialQueue 并发 → 沙箱生命周期 → Agent 运行 → Verifier 验证 → 结果聚合。</div>
+        <div class="badges">
+          <span>harbor v0.23.0</span>
+          <span>Python 3.12+</span>
+          <span>asyncio + Docker</span>
+          <span>配套 NL2RepoBench 接入分析</span>
+        </div>
+      </a>
+    </section>
+
+    <section class="card">
+      <h2>关于本站</h2>
+      <p class="muted">纯静态站点，托管在 GitHub Pages。所有笔记均为单文件 HTML（内联样式、零外部依赖），可离线阅读。页面内的目录锚点可以直接分享——比如把 <a href="Harbor_框架详解.html#sandbox" style="color:var(--c-blue);">沙箱编排</a> 一节直接发给同事。</p>
+    </section>
+
+  </main>
+
+  <!-- ============ 右侧：文档导航 ============ -->
+  <aside>
+    <div class="nav-box">
+      <div class="nav-head">📚 文档导航</div>
+
+      <!-- 每篇技术博客一个 article.doc 块：标题 + 章节链接 -->
+      <article class="doc">
+        <a class="doc-title" href="Harbor_框架详解.html">Harbor 框架详解：从入口到结果汇总</a>
+        <div class="doc-sub">harbor v0.23.0 · 10 章</div>
+      </article>
+
+      <!-- 后续博客按上述 article.doc 格式追加在此 -->
+
+      <div class="nav-foot">新笔记将按统一格式持续收录</div>
+    </div>
+  </aside>
+
+</div>
+
+<footer>jschen069.github.io · personal notebook</footer>
+
+</body>
+</html>

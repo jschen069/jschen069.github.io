@@ -1,0 +1,387 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Harbor 框架详解：从入口到结果汇总</title>
+<style>
+  :root{
+    --c-bg:#f6f8fa; --c-card:#ffffff; --c-text:#24292f; --c-muted:#57606a;
+    --c-border:#d0d7de; --c-blue:#0969da; --c-blue-bg:#ddf4ff;
+    --c-orange:#bc4c00; --c-orange-bg:#fff1e5;
+    --c-green:#1a7f37; --c-green-bg:#dafbe1;
+    --c-purple:#8250df; --c-purple-bg:#fbefff;
+    --c-red:#cf222e; --c-red-bg:#ffebe9;
+    --c-gray-bg:#eef1f4;
+  }
+  *{box-sizing:border-box;}
+  body{margin:0;font-family:"Segoe UI","Microsoft YaHei",-apple-system,sans-serif;background:var(--c-bg);color:var(--c-text);line-height:1.7;font-size:15px;}
+  .wrap{max-width:1080px;margin:0 auto;padding:0 24px 80px;}
+  header.hero{background:linear-gradient(135deg,#3a1d5e 0%,#14487a 60%,#0a6b3d 100%);color:#fff;padding:44px 24px 38px;margin-bottom:28px;}
+  header.hero .inner{max-width:1080px;margin:0 auto;}
+  header.hero h1{margin:0 0 8px;font-size:29px;letter-spacing:1px;}
+  header.hero p.sub{margin:0;opacity:.85;font-size:15px;}
+  header.hero .meta{margin-top:16px;display:flex;gap:10px;flex-wrap:wrap;}
+  header.hero .meta span{background:rgba(255,255,255,.15);border:1px solid rgba(255,255,255,.3);padding:3px 12px;border-radius:20px;font-size:13px;}
+  nav.toc{background:var(--c-card);border:1px solid var(--c-border);border-radius:10px;padding:18px 24px;margin-bottom:32px;}
+  nav.toc h2{margin:0 0 10px;font-size:16px;color:var(--c-muted);}
+  nav.toc ol{margin:0;padding-left:22px;columns:2;column-gap:40px;}
+  nav.toc li{margin:4px 0;}
+  nav.toc a{color:var(--c-blue);text-decoration:none;}
+  nav.toc a:hover{text-decoration:underline;}
+  section.card{background:var(--c-card);border:1px solid var(--c-border);border-radius:10px;padding:26px 30px;margin-bottom:28px;}
+  section.card>h2{margin:0 0 6px;font-size:22px;padding-bottom:10px;border-bottom:2px solid var(--c-border);}
+  section.card>h2 .phase-tag{display:inline-block;font-size:12px;padding:2px 10px;border-radius:12px;vertical-align:middle;margin-right:10px;color:#fff;}
+  .tag-blue{background:var(--c-blue);} .tag-orange{background:var(--c-orange);} .tag-green{background:var(--c-green);}
+  .tag-purple{background:var(--c-purple);} .tag-red{background:var(--c-red);} .tag-gray{background:#6e7781;}
+  h3{font-size:17px;margin:26px 0 10px;color:#14487a;}
+  h4{font-size:15px;margin:18px 0 8px;}
+  code{font-family:Consolas,"Courier New",monospace;background:var(--c-gray-bg);padding:1px 6px;border-radius:4px;font-size:13px;}
+  pre{background:#1e2530;color:#d7e0ea;border-radius:8px;padding:16px 18px;overflow-x:auto;font-size:13px;line-height:1.6;}
+  pre code{background:none;padding:0;color:inherit;}
+  table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px;}
+  th{background:var(--c-gray-bg);text-align:left;}
+  th,td{border:1px solid var(--c-border);padding:8px 12px;vertical-align:top;}
+  tr:nth-child(even) td{background:#fafbfc;}
+  .note{border-left:4px solid var(--c-blue);background:var(--c-blue-bg);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;}
+  .warn{border-left:4px solid var(--c-orange);background:var(--c-orange-bg);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;}
+  .danger{border-left:4px solid var(--c-red);background:var(--c-red-bg);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;}
+  .ok{border-left:4px solid var(--c-green);background:var(--c-green-bg);padding:12px 16px;border-radius:0 8px 8px 0;margin:14px 0;}
+  .flow{display:flex;flex-direction:column;margin:16px 0;}
+  .step{position:relative;padding:13px 16px 13px 56px;border:1px solid var(--c-border);border-radius:8px;margin-bottom:8px;background:#fff;}
+  .step .n{position:absolute;left:14px;top:13px;width:28px;height:28px;border-radius:50%;background:var(--c-blue);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:bold;font-size:14px;}
+  .step b{color:var(--c-blue);}
+  .arrow-down{text-align:center;color:var(--c-muted);font-size:18px;line-height:1;margin:-4px 0 4px;}
+  .kv{font-size:13px;color:var(--c-muted);}
+  footer{color:var(--c-muted);text-align:center;font-size:13px;margin-top:40px;}
+</style>
+</head>
+<body>
+
+<header class="hero">
+  <div class="inner">
+    <h1>Harbor 框架详解：从入口到结果汇总</h1>
+    <p class="sub">CLI 入口 → Job 编排 → TrialQueue 并发 → 沙箱生命周期 → Agent 运行 → Verifier 验证 → 结果聚合 的全链路剖析</p>
+    <div class="meta">
+      <span>源码：harbor/src/harbor/（v0.23.0，Python 3.12+）</span>
+      <span>执行模型：单进程 asyncio + 本地 Docker（默认）</span>
+      <span>配套：NL2RepoBench 接入分析系列</span>
+    </div>
+  </div>
+</header>
+
+<div class="wrap">
+
+<nav class="toc">
+  <h2>目录</h2>
+  <ol>
+    <li><a href="#concepts">总览：定位与核心概念</a></li>
+    <li><a href="#arch">五层执行架构</a></li>
+    <li><a href="#entry">入口层：CLI 命令与 JobConfig</a></li>
+    <li><a href="#job">Job 层：展开、断点续跑与目录契约</a></li>
+    <li><a href="#sandbox">沙箱编排：TrialQueue + Environment 生命周期</a></li>
+    <li><a href="#agent">Agent 运行：setup → run 与超时/网络/日志</a></li>
+    <li><a href="#verify">沙箱验证：Verifier 与 reward 协议</a></li>
+    <li><a href="#results">结果汇总：TrialResult → JobResult</a></li>
+    <li><a href="#seq">端到端时序总图</a></li>
+    <li><a href="#aisbench">附：ais_bench / NL2RepoBench 的接入点</a></li>
+  </ol>
+</nav>
+
+<!-- ======================= 一、概念 ======================= -->
+<section class="card" id="concepts">
+  <h2><span class="phase-tag tag-gray">总览</span>一、定位与核心概念</h2>
+  <p><b>Harbor 是一个 Agent 评测编排框架</b>：把「任意 Agent × 任意任务集 × 多次尝试」组织成可并发、可重试、可断点续跑的评测作业（Job），在容器化沙箱里执行「Agent 干活 → 脚本判分」两阶段，最后聚合出指标。它本身<b>不实现任何 Agent 和判分逻辑</b>——这两者分别通过 Agent 插件体系（48+ 内置）和任务自带的 <code>tests/test.sh</code> 承载。</p>
+  <table>
+    <tr><th>概念</th><th>定义</th><th>代码位置</th></tr>
+    <tr><td><b>Task</b></td><td>一个评测单元的目录：<code>task.toml</code>（超时/资源/元数据）+ <code>instruction.md</code>（任务指令）+ <code>environment/</code>（Dockerfile/compose）+ <code>tests/test.sh</code>（判分脚本）+ <code>solution/</code>（可选参考解）</td><td><code>models/task/</code></td></tr>
+    <tr><td><b>Dataset</b></td><td>Task 的集合（一个 benchmark 对应一个 dataset 目录）</td><td><code>models/job/config.py</code></td></tr>
+    <tr><td><b>Agent</b></td><td>完成任务的一方，实现 <code>BaseAgent.setup/run</code>；installed 型 Agent（openhands、claude-code 等）在<b>任务容器内</b>安装运行</td><td><code>agents/</code></td></tr>
+    <tr><td><b>Environment</b></td><td>容器化沙箱，实现 <code>BaseEnvironment</code>；默认 <code>docker</code>（docker compose 驱动），另有 daytona/e2b/modal 等 29 种</td><td><code>environments/</code></td></tr>
+    <tr><td><b>Trial</b></td><td>一次「某 Agent 尝试某 Task」的完整执行（环境启停 + Agent 运行 + 验证），产出 reward</td><td><code>trial/trial.py</code></td></tr>
+    <tr><td><b>Job</b></td><td>Trial 的集合：n_attempts × tasks × agents 笛卡尔展开，负责并发调度与结果聚合</td><td><code>job.py</code></td></tr>
+    <tr><td><b>Verifier</b></td><td>验证器：在容器内执行 <code>tests/test.sh</code>，解析 <code>/logs/verifier/reward.txt|json</code></td><td><code>verifier/verifier.py</code></td></tr>
+    <tr><td><b>Adapter</b></td><td>离线数据转换器：把外部 benchmark（如 SWE-bench）转成 Harbor Task 格式，<b>运行时不参与</b></td><td><code>adapters/</code></td></tr>
+    <tr><td><b>Metric</b></td><td>指标计算器（Mean/Max/自定义脚本），对每个「agent__model__dataset」分组聚合 rewards</td><td><code>metrics/</code></td></tr>
+  </table>
+</section>
+
+<!-- ======================= 二、架构 ======================= -->
+<section class="card" id="arch">
+  <h2><span class="phase-tag tag-gray">架构</span>二、五层执行架构</h2>
+  <pre><code>┌─────────────────────────────────────────────────────────────────┐
+│ ⑤ CLI 层     harbor run / job start（Typer）                      │
+│              cli/main.py:167 → cli/jobs.py: start() → _execute_job│
+├─────────────────────────────────────────────────────────────────┤
+│ ④ Job 层     Job.create(config) → JobPlan 解析任务 → TrialConfig  │
+│              笛卡尔展开（job.py:405-429）→ 断点续跑对账            │
+│              job.run()：进度 UI + 结果聚合 + result.json           │
+├─────────────────────────────────────────────────────────────────┤
+│ ③ 并发层     TrialQueue：asyncio.Semaphore(n_concurrent) 限流      │
+│              重试策略（RetryConfig + 指数退避）+ 生命周期 Hook     │
+├─────────────────────────────────────────────────────────────────┤
+│ ② Trial 层   Trial.run()（trial.py:449）                          │
+│              _prepare(环境启动/健康检查/Agent安装)                  │
+│              → SingleStepTrial._run(Agent阶段 → 验证阶段)          │
+│              → _finalize(停环境/写 result.json)                    │
+├─────────────────────────────────────────────────────────────────┤
+│ ① 执行层     Environment（docker compose 容器沙箱）                │
+│              Agent（任务容器内运行，asyncio.wait_for 超时控制）      │
+│              Verifier（tests 注入 → test.sh → reward 解析）        │
+└─────────────────────────────────────────────────────────────────┘</code></pre>
+  <div class="note"><b>与 NL2RepoBench 的同构性</b>：Harbor 的 Trial ≈ NL2RepoBench 的单个任务线程（start_app）；Verifier ≈ post_process_task；Job ≈ start_openhands 的分发循环。差异在于 Harbor 用 asyncio 单进程事件循环（NL2RepoBench 用线程池）、每阶段有超时与重试、结果有统一 schema。</div>
+</section>
+
+<!-- ======================= 三、入口 ======================= -->
+<section class="card" id="entry">
+  <h2><span class="phase-tag tag-blue">入口</span>三、入口层：CLI 命令与 JobConfig</h2>
+  <h3>3.1 命令注册（cli/main.py）</h3>
+  <pre><code>harbor / hr / hb            # 三个等价入口（pyproject entry_points → cli/main.py:app，Typer）
+harbor run ...              # = harbor job start 的别名（main.py:167）→ jobs.py: start()
+harbor trial start -p &lt;task&gt; -a &lt;agent&gt; -m &lt;model&gt;   # 单任务调试入口
+harbor view / init / publish / hub / upload / dataset ...</code></pre>
+  <h3>3.2 配置构建（jobs.py: build_job_config，411 行起的巨型签名）</h3>
+  <p>把 CLI 参数 + YAML/JSON 配置文件合并成 <code>JobConfig</code>（Pydantic 模型，<code>models/job/config.py:396-449</code>）：</p>
+  <table>
+    <tr><th>参数族</th><th>CLI 选项</th><th>说明</th></tr>
+    <tr><td>配置来源</td><td><code>-c/--config</code>（可叠加）、<code>-p/--path</code>（本地任务/数据集）、<code>-d/--dataset</code>（registry）、<code>-t/--task</code></td><td>后者覆盖前者；<code>-p</code> 走本地路径<b>完全不联网</b></td></tr>
+    <tr><td>Agent</td><td><code>-a/--agent</code>、<code>-m/--model</code>、<code>--ak/--agent-kwarg</code>、<code>--ae/--agent-env</code></td><td>支持 <code>module:ClassName</code> 自定义 Agent 零源码接入</td></tr>
+    <tr><td>沙箱</td><td><code>-e/--environment</code>（docker/daytona/e2b/...）</td><td>默认 docker</td></tr>
+    <tr><td>并发/尝试</td><td><code>-n/--n-concurrent</code>、<code>-k/--n-attempts</code></td><td>并发与重复次数</td></tr>
+    <tr><td>执行模式</td><td><code>--dry-run</code>、<code>--print-config</code>、<code>--launch</code>、<code>--upload</code></td><td>launch=云端托管（内网场景不用）</td></tr>
+  </table>
+  <h3>3.3 执行分发（jobs.py: _execute_job，1997 行）</h3>
+  <div class="flow">
+    <div class="step"><span class="n">1</span><b>print-config / dry-run</b>：校验并打印合并后的配置，不执行</div>
+    <div class="arrow-down">▼</div>
+    <div class="step"><span class="n">2</span><b>launch 分支</b>：<code>--launch</code> 走 hosted 提交（Harbor Hub 云端）；<b>默认不走</b>——本地执行</div>
+    <div class="arrow-down">▼</div>
+    <div class="step"><span class="n">3</span><b>本地执行</b>：<code>await Job.create(config)</code> → <code>await job.run()</code>，在当前进程内跑完全部 trial</div>
+  </div>
+  <div class="note">前置检查 <code>_run_preflight</code>（jobs.py:113-128）：环境凭据 + Agent 选项校验。本地 docker 无凭据要求；云环境检查 API key。</div>
+</section>
+
+<!-- ======================= 四、Job 层 ======================= -->
+<section class="card" id="job">
+  <h2><span class="phase-tag tag-blue">编排</span>四、Job 层：展开、断点续跑与目录契约</h2>
+  <h3>4.1 Job.create（job.py:136-184）——配置到可运行作业</h3>
+  <pre><code>① _resolve_agent_skills        # 解析 skills 来源（git/本地路径）
+② AgentFactory.run_preflight   # 每个 Agent 的选项/凭据预检
+③ _resolve_task_configs        # JobPlan：解析 -p/-d/-t 成 TaskConfig 列表
+④ validate_resource_policies   # 环境资源策略校验
+⑤ _resolve_metrics             # 每个数据集的指标集（缺省 Mean）
+⑥ _cache_tasks                 # 任务下载/缓存到本地
+→ Job 实例（构造函数内完成 trial 展开与续跑对账）</code></pre>
+  <h3>4.2 Trial 笛卡尔展开（job.py:405-429）</h3>
+  <pre><code>self._trial_configs = [
+    TrialConfig(task=..., agent=agent_config, environment=..., verifier=..., ...)
+    for _ in range(n_attempts)          # 尝试次数（外层）
+    for task_config in task_configs     # 所有任务（中层）
+    for agent_config in agents          # 所有 Agent（内层——错开模型供应商，优化限流）
+]</code></pre>
+  <p>一个 Job 的 trial 总数 = <code>n_attempts × 任务数 × Agent 数</code>。每个 TrialConfig 携带独立的超时乘数（agent/verifier/build 分开可调）。</p>
+  <h3>4.3 断点续跑（resume）机制</h3>
+  <ul>
+    <li>Job 目录已存在 → 读 <code>result.json</code> 恢复 job UUID；逐个校验已有 <code>trial_*/result.json</code>，无结果的目录直接删除（job.py:278-280）</li>
+    <li><code>_init_remaining_trial_configs</code>（347-377）：把计划的 TrialConfig 与已完成的<b>逐一对账</b>，只重跑缺失的；配置不一致则拒绝续跑</li>
+    <li>重试时（retry）<code>_remove_completed_attempt_for_retry</code>（697-708）：撤回旧结果、指标重算、retries 计数 +1</li>
+  </ul>
+  <h3>4.4 Job 目录契约</h3>
+  <pre><code>jobs/{job_name}/
+├── config.json      # 本次 JobConfig 快照（续跑校验依据）
+├── lock.json        # 输入锁定（harbor 版本/任务摘要/Agent 版本），保证可复现
+├── result.json      # JobResult：进度 + 统计 + 指标 + 全部 TrialResult（增量写入）
+├── job.log          # 调试级完整日志
+└── trial_*/         # 每个 Trial 一个目录（见第八节）</code></pre>
+</section>
+
+<!-- ======================= 五、沙箱编排 ======================= -->
+<section class="card" id="sandbox">
+  <h2><span class="phase-tag tag-green">沙箱</span>五、沙箱编排：TrialQueue + Environment 生命周期</h2>
+  <h3>5.1 TrialQueue 并发控制（trial/queue.py）</h3>
+  <table>
+    <tr><th>机制</th><th>实现</th><th>说明</th></tr>
+    <tr><td>并发上限</td><td><code>asyncio.Semaphore(n_concurrent)</code>（:45）</td><td>同时运行的 Trial 数 = <code>n_concurrent_trials</code>（JobConfig，默认 4）</td></tr>
+    <tr><td>重试</td><td><code>RetryConfig</code>：include/exclude 异常类型过滤 + 指数退避 <code>min_wait × multiplier^attempt</code>（封顶 max_wait）（:83-110）</td><td>基础设施类异常自动重跑，Agent 超时等可配置排除</td></tr>
+    <tr><td>Hook 体系</td><td><code>TrialEvent</code>：START / ENVIRONMENT_START / AGENT_START / VERIFICATION_START / AGENT_END / END / CANCEL</td><td>Job 挂钩实现实时统计；进度 UI 挂钩实现状态展示</td></tr>
+    <tr><td>Agent 级限流</td><td>每 Agent 独立信号量池（:46-48）</td><td>同一模型供应商的并发可单独限制</td></tr>
+  </table>
+  <p>Job 侧提交方式（job.py:1177-1182）：<code>submit_batch(remaining_trial_configs)</code> → <code>asyncio.TaskGroup</code> 并发收口。</p>
+
+  <h3>5.2 DockerEnvironment 生命周期（environments/docker/docker.py）</h3>
+  <div class="flow">
+    <div class="step"><span class="n">1</span><b>start(force_build)</b>（:966）：写四份 compose 覆盖文件（挂载/资源/环境变量/egress 出网控制）→ 决定用预构建镜像（<code>task.toml [environment].docker_image</code>）还是现场 <code>docker compose build</code>（同名镜像并发构建用锁串行化 :1009-1016）</div>
+    <div class="arrow-down">▼</div>
+    <div class="step"><span class="n">2</span><b>镜像 OS 校验</b>（:1018-1025）→ <b>清理残留</b>：<code>compose down --remove-orphans</code>（:1027-1031，同 session ID 的旧容器）</div>
+    <div class="arrow-down">▼</div>
+    <div class="step"><span class="n">3</span><b>启动</b>：<code>compose up</code>（启用 egress 控制时先拉起网络策略 sidecar 再起主服务 :1034-1044）→ 轮询 <code>exec true</code> 直到容器可执行命令（:1044,1076）</div>
+    <div class="arrow-down">▼</div>
+    <div class="step"><span class="n">4</span><b>挂载目录准备</b>：<code>/logs/{agent,verifier,artifacts}</code> 建目录并 chmod（:1046-1052）→ 上传 environment/ 目录（:1054）</div>
+    <div class="arrow-down">▼</div>
+    <div class="step"><span class="n">5</span><b>运行期</b>：<code>exec()</code>（:1311，以指定用户执行命令）、<code>upload_dir / download_dir</code>（:1197,1263）、可选 SSH 流式访问</div>
+    <div class="arrow-down">▼</div>
+    <div class="step"><span class="n">6</span><b>stop(delete)</b>（:1143）：验证完成后停止并（默认）删除容器</div>
+  </div>
+  <h3>5.3 容器内路径契约（models/trial/paths.py）</h3>
+  <pre><code>/                        容器根
+├── logs/                 ★ 与宿主 trial_dir/ 双向挂载
+│   ├── agent/            #   宿主 trial_dir/agent/   ← Agent 日志/轨迹落这里
+│   ├── verifier/         #   宿主 trial_dir/verifier/← 判分输出，reward.txt 在此
+│   └── artifacts/        #   宿主 trial_dir/artifacts/
+├── tests/                ★ Verifier 阶段才注入（任务目录的 tests/ 上传到此）
+└── solution/             ★ 仅 OracleAgent 使用（跑参考解）</code></pre>
+  <div class="ok"><b>防作弊的关键：</b><code>tests/</code> 不在镜像里、不在挂载卷里——它由 Verifier 在 Agent 阶段结束后 <code>upload_dir</code> 进容器。Agent 运行期间无法看到判分脚本与测试内容。</div>
+</section>
+
+<!-- ======================= 六、Agent 运行 ======================= -->
+<section class="card" id="agent">
+  <h2><span class="phase-tag tag-blue">Agent</span>六、Agent 运行：setup → run 与超时/网络/日志</h2>
+  <h3>6.1 Trial._prepare（trial.py:489-506）——运行前装配</h3>
+  <pre><code>① _validate_agent_capabilities    # Agent 能力 vs 任务要求（如 windows）
+② _setup_agent_environment        # Environment.start(force_build)
+③ run_healthcheck                 # 容器健康检查
+④ _upload_injected_skills         # 注入 Agent 技能包
+⑤ _setup_agent                    # ★ Agent.setup(environment)
+     └─ installed 型：在任务容器内安装本体（如 openhands 的
+        uv venv + pip install openhands-ai，agents/installed/openhands.py:848-878）</code></pre>
+  <h3>6.2 Agent 阶段执行（trial.py:540-624）</h3>
+  <pre><code>_emit(AGENT_START)
+with 网络策略上下文(phase=agent):          # task.toml [agent].network_mode 生效于此
+  with scoped_exec_env(agent.extra_env):    # LLM_API_KEY / LLM_BASE_URL 等注入
+    with 日志上下文(/logs/agent):
+      with sync_trajectory(...):            # 实时轨迹同步到宿主
+        await asyncio.wait_for(             # ★ 超时硬控制
+            agent.run(instruction, environment, context),
+            timeout=timeout_sec)            # task.toml [agent].timeout_sec × 乘数
+except asyncio.TimeoutError → AgentTimeoutError
+finally: _emit(AGENT_END)</code></pre>
+  <table>
+    <tr><th>控制维度</th><th>机制</th><th>说明</th></tr>
+    <tr><td>超时</td><td><code>asyncio.wait_for</code>（:608-615）</td><td>到时取消协程，抛 AgentTimeoutError——被 SingleStepTrial 捕获<b>记为异常但继续验证</b>（single_step.py:84-85），部分完成也能得分</td></tr>
+    <tr><td>网络</td><td>每阶段网络策略（:583-587）</td><td>agent 阶段与 verifier 阶段独立配置（public / 限制 / egress sidecar 拦截）</td></tr>
+    <tr><td>凭据</td><td><code>scoped_exec_env</code></td><td>模型连接（api key/base URL）只在 Agent 阶段暴露给容器</td></tr>
+    <tr><td>产物</td><td><code>/logs/agent</code> 挂载 + sync_trajectory</td><td>日志与轨迹实时落宿主，超时/崩溃不丢</td></tr>
+  </table>
+  <h3>6.3 Agent 阶段收尾（SingleStepTrial._run :38-55）</h3>
+  <pre><code>_run_agent()            # 含超时捕获 + _sync_agent_output
+→ _upload_agent_logs()  # 非挂载型环境回传日志
+→ _collect_artifacts()  # 按任务 artifacts 配置收集容器内文件
+→ [SEPARATE 模式: 先停 Agent 环境]     # verifier 用独立容器
+→ _run_verifier()
+→ [SHARED 模式: 验证后停环境]          # 默认：同一容器两阶段</code></pre>
+</section>
+
+<!-- ======================= 七、验证 ======================= -->
+<section class="card" id="verify">
+  <h2><span class="phase-tag tag-orange">验证</span>七、沙箱验证：Verifier 与 reward 协议</h2>
+  <h3>7.1 Verifier.verify() 全流程（verifier/verifier.py:166-268）</h3>
+  <div class="flow">
+    <div class="step" style="border-left:4px solid var(--c-orange);"><span class="n" style="background:var(--c-orange);">1</span><b>定位测试脚本</b>（_resolve_tests :124-163）：按目标 OS 找 <code>tests/test.sh</code>（或 .bat/.ps1）；多步任务支持步骤级测试目录</div>
+    <div class="arrow-down">▼</div>
+    <div class="step" style="border-left:4px solid var(--c-orange);"><span class="n" style="background:var(--c-orange);">2</span><b>注入 tests/</b>（:175-187）：<code>environment.upload_dir(task/tests → 容器 /tests)</code>——Agent 阶段已结束，此刻才可见；<code>skip_tests_upload</code> 可跳过（镜像自带判分脚本时）</div>
+    <div class="arrow-down">▼</div>
+    <div class="step" style="border-left:4px solid var(--c-orange);"><span class="n" style="background:var(--c-orange);">3</span><b>合成执行命令</b>（:189-219）：合并 <code>verifier.env</code> + 覆盖 env（支持 ${VAR} 解析）→ <code>chmod +x</code> → 以 verifier 用户执行，stdout 重定向到 <code>/logs/verifier/test-stdout.log</code></div>
+    <div class="arrow-down">▼</div>
+    <div class="step" style="border-left:4px solid var(--c-orange);"><span class="n" style="background:var(--c-orange);">4</span><b>回收验证产物</b>（:234-255）：下载 <code>/logs/verifier/</code> 整目录到宿主 trial 目录</div>
+    <div class="arrow-down">▼</div>
+    <div class="step" style="border-left:4px solid var(--c-orange);"><span class="n" style="background:var(--c-orange);">5</span><b>解析 reward</b>（:257-266）：<code>reward.json</code>（多指标 dict，优先）或 <code>reward.txt</code>（单浮点数）→ 校验有限数值 → <code>VerifierResult(rewards=...)</code></div>
+  </div>
+  <h3>7.2 reward 协议与失败语义</h3>
+  <table>
+    <tr><th>项</th><th>规则</th></tr>
+    <tr><td>取值</td><td>数值型（int/float），建议 0~1；非有限值（NaN/Inf/1e309）与字符串一律拒绝（:104-121）</td></tr>
+    <tr><td>缺失/空文件</td><td><code>RewardFileNotFoundError / RewardFileEmptyError</code>——test.sh 忘写 reward 会直接判失败</td></tr>
+    <tr><td>超时</td><td>verifier 阶段独立超时（<code>[verifier].timeout_sec</code>），超时抛 VerifierTimeoutError（single_step.py:110-113）</td></tr>
+    <tr><td>验证模式</td><td>SHARED（默认）：与 Agent 同容器——适合"检查 Agent 留下的文件状态"；SEPARATE：独立验证容器——适合需要干净环境的判分</td></tr>
+  </table>
+  <div class="note"><b>典型 test.sh 模式</b>（swebench adapter 实例）：跑测试命令 → 解析结果 → <code>echo 1 &gt; /logs/verifier/reward.txt</code>。连续分数直接写浮点值（如 NL2RepoBench 适配的 passed/total）。</div>
+</section>
+
+<!-- ======================= 八、结果汇总 ======================= -->
+<section class="card" id="results">
+  <h2><span class="phase-tag tag-green">汇总</span>八、结果汇总：TrialResult → JobResult</h2>
+  <h3>8.1 Trial 目录与 TrialResult（trial 结束即落盘）</h3>
+  <pre><code>trial_{name}/
+├── agent/            # Agent 日志 + trajectory.json（ATIF 格式）
+├── verifier/         # reward.txt / reward.json / test-stdout.log
+├── artifacts/        # 收集的容器内产物 + manifest.json
+├── config.json       # 本 Trial 完整配置（复现依据）
+├── lock.json         # 输入锁定
+├── result.json       # ★ TrialResult（_finalize 时写入，trial.py:514）
+└── trial.log
+
+TrialResult 字段：trial_name / task_name / source / agent_info(Agent+模型)
+  / agent_result(AgentContext: token、cost) / verifier_result(rewards)
+  / agent_execution + verifier(TimingInfo) / exception_info(异常栈)</code></pre>
+  <h3>8.2 JobResult 聚合（job.py:953-1093）</h3>
+  <div class="flow">
+    <div class="step" style="border-left:4px solid var(--c-green);"><span class="n" style="background:var(--c-green);">1</span><b>实时聚合</b>：每完成一个 trial，<code>_on_trial_completed</code> hook（:917-951）更新 rewards 映射 → 增量写 <code>result.json</code>（排除明细以控体积）——看板/监控可随时读取中间态</div>
+    <div class="arrow-down">▼</div>
+    <div class="step" style="border-left:4px solid var(--c-green);"><span class="n" style="background:var(--c-green);">2</span><b>最终聚合</b>（:1033-1072）：合并新跑 + 续跑已有结果 → 按「agent__model__dataset」分组 → 每组算指标（Mean 等可自定义）+ <b>pass@k</b>（n_attempts &gt; 1 时自动计算）</div>
+    <div class="arrow-down">▼</div>
+    <div class="step" style="border-left:4px solid var(--c-green);"><span class="n" style="background:var(--c-green);">3</span><b>落盘</b>：JobResult（进度统计 + evals 指标 + 全部 TrialResult）写 <code>jobs/{job}/result.json</code>；<code>harbor view</code> 起本地 Web 查看器浏览</div>
+  </div>
+  <table>
+    <tr><th>聚合维度</th><th>键格式</th><th>内容</th></tr>
+    <tr><td>evals 分组</td><td><code>agent__model__dataset</code></td><td>每组：metrics 列表（各指标计算值）+ pass_at_k + reward 分布</td></tr>
+    <tr><td>进度统计</td><td>JobStats</td><td>n_total / n_running / n_cancelled / n_retries，实时刷新</td></tr>
+  </table>
+</section>
+
+<!-- ======================= 九、时序图 ======================= -->
+<section class="card" id="seq">
+  <h2><span class="phase-tag tag-gray">时序</span>九、端到端时序总图</h2>
+  <pre><code>CLI                    Job                        TrialQueue            Trial                     Environment(容器)         Verifier
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+harbor run -p ds -a A -m M
+ └ build_job_config
+ └ Job.create
+     ├ preflight/解析任务/缓存
+     └ 展开 TrialConfig × (k×tasks×agents)
+    job.run()
+     ├ 写 config/lock/result.json
+     └ submit_batch ────────→ Semaphore 限流
+                                └ trial.run() ───→ _prepare
+                                                   ├ env.start ─────────→ compose build/up
+                                                   ├ healthcheck
+                                                   └ agent.setup ──────→ 容器内安装 Agent
+                                                   _run (SingleStep)
+                                                   ├ _run_agent ───────→ /logs/agent 挂载
+                                                   │   wait_for(run, timeout)          [Agent 干活：LLM↔模型服务]
+                                                   ├ _upload_agent_logs
+                                                   ├ _collect_artifacts
+                                                   └ _run_verifier ─────────────────────────────→ upload tests/→/tests
+                                                                                              chmod+exec test.sh
+                                                                                              [判分脚本运行]
+                                                                                              ← reward.txt/json
+                                                                                   ← VerifierResult(rewards)
+                                                   _finalize
+                                                   ├ env.stop(delete)
+                                                   └ 写 trial_*/result.json
+                                ← END hook ←───────┘
+     ├ _on_trial_completed：更新指标
+     │   （每 trial 增量写 result.json）
+     └ 全部完成：最终指标 + pass@k
+        → jobs/{job}/result.json</code></pre>
+</section>
+
+<!-- ======================= 十、接入点 ======================= -->
+<section class="card" id="aisbench">
+  <h2><span class="phase-tag tag-purple">附</span>十、ais_bench / NL2RepoBench 的接入点</h2>
+  <p>基于以上框架，前面系列分析的接入结论在框架中的落点：</p>
+  <table>
+    <tr><th>接入项</th><th>Harbor 框架中的落点</th></tr>
+    <tr><td>ais_bench 启动链</td><td>ais_bench <code>--mode agent</code> → HarborRunner → HarborAgentTask 直接调用 <code>Job.create(JobConfig)</code> + <code>job.run()</code>（替换 CLI 层，Job 层以下完全复用）</td></tr>
+    <tr><td>NL2RepoBench 任务格式转换</td><td>Adapter 产出 Task 目录四件套（task.toml/instruction.md/environment/Dockerfile/tests/test.sh）——对应第 1、5 节的 Task 契约与容器路径契约</td></tr>
+    <tr><td>无作弊评测</td><td>第 5.3/7.1 节的 <b>tests/ 延迟注入机制</b>天然复刻"删-换-合"隔离；post_processor 的清理逻辑写入 test.sh 开头</td></tr>
+    <tr><td>原 start_app 的 Agent 容器</td><td>被第 6 节 Agent 阶段替代（openhands installed agent 在任务容器内运行）；原轮询等待被 <code>asyncio.wait_for</code> 超时控制替代</td></tr>
+    <tr><td>原 result/*.json 汇总</td><td>被第 8 节 JobResult 替代（指标、pass@k、断点续跑均为内建能力）</td></tr>
+    <tr><td>离线运行</td><td>全程仅需：本地 Docker（第 5 节）+ 内网 LLM 端点（第 6.2 节 scoped_exec_env）+ 预导入镜像（第 5.2 节 docker_image 直用免构建）</td></tr>
+  </table>
+</section>
+
+<footer>基于 harbor v0.23.0 源码静态分析生成 · 关键文件：cli/jobs.py · job.py · trial/{trial,single_step,queue}.py · verifier/verifier.py · environments/docker/docker.py · models/trial/paths.py</footer>
+
+</div>
+</body>
+</html>
